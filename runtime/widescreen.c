@@ -65,7 +65,7 @@ static void pass_end(int clear_sides) {
     if (s_gfx) WR16(s_gfx + 0x44, s_clip_gfx);
 }
 
-/* run the original guest function f inside a UI pass */
+/* run the original guest function f inside a pass (full-screen states clear the sides) */
 static void run_pass(rt_fn f, uint32_t vw, int clear_sides) {
     uint32_t lr = R[14];
     pass_begin(vw);
@@ -79,15 +79,36 @@ static void ui_pass(rt_fn f) { run_pass(f, UI_W, 0); }
 
 /* Maps narrower than the screen (castle rooms, houses) were never possible at 320 pixels; the game
  * would pin them to the left edge.  Draw them in a pass exactly as wide as the map, centred. */
+/* The tile layers also skip the bottom 32 pixels unless the state's "full height" flag (+0x2c) is set,
+ * because the HUD used to cover them; with a centred HUD they are visible, so always draw them. */
 void H_ZN12CMvGameState7DrawMapEv(void) {
-    uint32_t map = RD32(GUEST_MvMap);
-    uint32_t mw = map ? RD32(map + 0xb4) * 16 : 0;
-    if (paragon_center_maps && mw >= 16 && mw < RD32(G_SCREEN_W)) run_pass(F_098a4c, mw, 1);
+    uint32_t map = RD32(GUEST_MvMap), state = R[0];
+    uint32_t mw = map ? RD32(map + 0xb4) * 16 : 0, sw = RD32(G_SCREEN_W);
+    uint32_t full = RD8(state + 0x2c);
+    if (sw > UI_W) WR8(state + 0x2c, 1);
+    if (paragon_center_maps && mw >= 16 && mw < sw) run_pass(F_098a4c, mw, 1);
     else F_098a4c();
+    WR8(state + 0x2c, full);
 }
 
 void H_ZN12CMvGameState10DrawGameUIEv(void) { ui_pass(F_098a10); }
 void H_ZN12CMvGameState15DrawGameUIIntroEv(void) { ui_pass(F_0989d8); }
-void H_ZN13CMvTitleState4DrawEv(void) { ui_pass(F_08b800); }
-void H_ZN12CMvMenuState4DrawEv(void) { ui_pass(F_084664); }
-void H_ZN7CGsLogo4DrawEv(void) { ui_pass(F_0671e8); }
+void H_ZN13CMvTitleState4DrawEv(void) { run_pass(F_08b800, UI_W, 1); }
+void H_ZN12CMvMenuState4DrawEv(void) { run_pass(F_084664, UI_W, 1); }
+void H_ZN7CGsLogo4DrawEv(void) { run_pass(F_0671e8, UI_W, 1); }
+
+/* The camera may scroll 32 pixels past the bottom of a map, where the full-width HUD used to be.  With
+ * a centred HUD that strip shows as black corners, so stop the camera at the map's bottom edge. */
+void H_ZN6CMvMap11SetBasePosYEi(void) {
+    uint32_t sw = RD32(G_SCREEN_W), gfx = RD32(GUEST_GsGraphics);
+    if (sw <= UI_W || !gfx) { F_088aa4(); return; }
+    uint32_t map = R[0], g = RD32(gfx + 8), fb = RD32(g);
+    int32_t h = (int32_t)RD32(fb + 4) - (int32_t)RD32(g + 0x44);
+    int32_t y = (int32_t)R[1] - h / 2;
+    int32_t max = (int32_t)RD32(map + 0xb8) * 16 - h;
+    if (y > max) y = max;
+    if (y < 0) y = 0;
+    WR16(map + 0xd0, (uint32_t)y);
+    int32_t t = ((int32_t)(int16_t)y - 15) >> 4;
+    WR8(map + 0xcd, (uint32_t)(t < 0 ? 0 : t));
+}

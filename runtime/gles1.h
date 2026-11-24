@@ -37,6 +37,8 @@ void glColor4f(float r, float g, float b, float a);
 void glBlendFunc(uint32_t s, uint32_t d);
 void glPixelStorei(uint32_t pname, int32_t param);
 void glClearColor(float r, float g, float b, float a);
+void glPushMatrix(void);
+void glPopMatrix(void);
 #ifdef __cplusplus
 }
 #endif

@@ -103,6 +103,8 @@ void glColor4f(float r, float g, float b, float a) { (void)r; (void)g; (void)b; 
 void glBlendFunc(uint32_t s, uint32_t d) { (void)s; (void)d; }
 void glPixelStorei(uint32_t p, int32_t v) { (void)p; (void)v; }
 void glClearColor(float r, float g, float b, float a) { (void)r; (void)g; (void)b; (void)a; }
+void glPushMatrix(void) { }
+void glPopMatrix(void) { }
 
 static void dump(const char *dir, int frame) {
     char p[1024];

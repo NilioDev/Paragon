@@ -97,14 +97,18 @@ static void setup_state(void) {
         tex_ready = 1;
     }
     glViewport(0, 0, paragon_view_w, paragon_view_h);
+    /* the Java UI layer draws its buttons afterwards with the projection the game set up in glResize,
+     * so save the matrices and put them back when done */
     glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
     glLoadIdentity();
     glOrthof(0, (float)paragon_view_w, (float)paragon_view_h, 0, -1, 1);
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
     glMatrixMode(GL_TEXTURE);
+    glPushMatrix();
     glLoadIdentity();
     glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
     glDisable(GL_BLEND);
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_ALPHA_TEST);
@@ -172,6 +176,12 @@ void rt_present(uint32_t pixels, int w, int h) {
     /* leave state the way the Java UI layer expects it */
     glDisableClientState(GL_TEXTURE_COORD_ARRAY);
     glDisable(GL_TEXTURE_2D);
+    glPopMatrix();
+    glMatrixMode(GL_TEXTURE);
+    glPopMatrix();
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
 }
 
 /* ---------------- override of the guest's glDrawFrame ---------------- */

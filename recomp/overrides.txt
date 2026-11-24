@@ -7,3 +7,4 @@ wrap _ZN13CMvTitleState4DrawEv
 wrap _ZN12CMvMenuState4DrawEv
 wrap _ZN7CGsLogo4DrawEv
 wrap _ZN12CMvGameState7DrawMapEv
+wrap _ZN6CMvMap11SetBasePosYEi
