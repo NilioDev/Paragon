@@ -5,6 +5,7 @@
 #include <android/log.h>
 #include <jni.h>
 #include <pthread.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 
@@ -29,9 +30,21 @@ static JNIEnv *env(void) {
 static void check_exc(const char *what) {
     JNIEnv *e = env();
     if ((*e)->ExceptionCheck(e)) {
-        rt_log("Java exception in %s", what);
-        (*e)->ExceptionDescribe(e);
+        jthrowable t = (*e)->ExceptionOccurred(e);
         (*e)->ExceptionClear(e);
+        char line[200];
+        snprintf(line, sizeof line, "Java exception in %s", what);
+        jclass oc = (*e)->FindClass(e, "java/lang/Object");
+        jmethodID ts = oc ? (*e)->GetMethodID(e, oc, "toString", "()Ljava/lang/String;") : NULL;
+        jstring str = ts ? (jstring)(*e)->CallObjectMethod(e, t, ts) : NULL;
+        if ((*e)->ExceptionCheck(e)) (*e)->ExceptionClear(e);
+        if (str) {
+            const char *c = (*e)->GetStringUTFChars(e, str, NULL);
+            snprintf(line, sizeof line, "Java %s: %s", what, c ? c : "?");
+            if (c) (*e)->ReleaseStringUTFChars(e, str, c);
+        }
+        backend_log(line);
+        rt_diag_line(line, 1);
     }
 }
 
@@ -130,7 +143,6 @@ VOID0(InitializeJNIGlobalRef)
 VOID0(NativeDestroyClet)
 VOID0(NativeInit)
 VOID0(NativePauseClet)
-VOID0(NativeRender)
 VOID0(NativeResumeClet)
 VOIDZ(SetDpadDrawingBlock)
 VOIDZ(SetShowCancelButton)
@@ -141,7 +153,14 @@ VOIDZ(SetShowSelectButton)
 VOIDZ(SetShowSlotSwapButton)
 
 JNIEXPORT void JNICALL Java_com_gamevil_nexus2_Natives_NativeResize(JNIEnv *e, jclass c, jint w, jint h) {
-    (void)c; enter(e, N(NativeResize), 4, (uint32_t)w, (uint32_t)h, 0);
+    (void)c;
+    rt_present_reset();            /* a new surface may mean a new GL context */
+    enter(e, N(NativeResize), 4, (uint32_t)w, (uint32_t)h, 0);
+}
+JNIEXPORT void JNICALL Java_com_gamevil_nexus2_Natives_NativeRender(JNIEnv *e, jclass c) {
+    (void)c;
+    if (rt_is_dead()) { pthread_mutex_lock(&lock); rt_present(0, 0, 0); pthread_mutex_unlock(&lock); return; }
+    enter(e, N(NativeRender), 2, 0, 0, 0);
 }
 JNIEXPORT void JNICALL Java_com_gamevil_nexus2_Natives_handleCletEvent(JNIEnv *e, jclass c, jint a, jint b, jint d) {
     (void)c; enter(e, N(handleCletEvent), 5, (uint32_t)a, (uint32_t)b, (uint32_t)d);

@@ -520,6 +520,10 @@ class Recompiler:
         for c in (self.cs_t, self.cs_a):
             c.detail = True
         self.hle = {}              # addr -> name
+        ovf = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'overrides.txt')
+        self.overrides = set()
+        if os.path.exists(ovf):
+            self.overrides = {l.split('#')[0].strip() for l in open(ovf)} - {''}
         plt = self.img.elf.get_section_by_name('.plt')
         self.plt = {}              # plt entry addr -> GOT slot addr
         if plt:
@@ -538,7 +542,10 @@ class Recompiler:
         for a, f in self.img.funcs.items():
             names = self.img.names[a]
             hn = [n for n in names if n in HLE]
-            if hn:
+            on = [n for n in names if n in self.overrides]
+            if on:
+                self.hle[a] = on[0]
+            elif hn:
                 self.hle[a] = hn[0]
             elif any(n.startswith(ABORT_PREFIXES) for n in names):
                 self.aborts[a] = names[0]

@@ -3,7 +3,7 @@ GEN ?= ../generated
 CC ?= cc
 CFLAGS ?= -O1 -g
 GENSRC := $(wildcard $(GEN)/code_*.c) $(GEN)/tables.c
-RTSRC := ../runtime/rt_core.c ../runtime/rt_libc.c ../runtime/rt_gl.c ../runtime/rt_jni.c
+RTSRC := ../runtime/rt_core.c ../runtime/rt_libc.c ../runtime/rt_gl.c ../runtime/rt_jni.c ../runtime/overrides.c ../runtime/present.c
 OBJ := $(patsubst $(GEN)/%.c,build/gen/%.o,$(GENSRC)) $(patsubst ../runtime/%.c,build/rt/%.o,$(RTSRC)) build/backend_test.o build/image.o
 
 zen_test: $(OBJ)

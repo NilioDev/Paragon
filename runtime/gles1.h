@@ -31,6 +31,12 @@ void glTexSubImage2D(uint32_t target, int32_t level, int32_t xoffset, int32_t yo
 void glTranslatex(int32_t x, int32_t y, int32_t z);
 void glVertexPointer(int32_t size, uint32_t type, int32_t stride, const void *ptr);
 void glViewport(int32_t x, int32_t y, int32_t width, int32_t height);
+/* used by the runtime's own presentation code */
+void glOrthof(float l, float r, float b, float t, float n, float f);
+void glColor4f(float r, float g, float b, float a);
+void glBlendFunc(uint32_t s, uint32_t d);
+void glPixelStorei(uint32_t pname, int32_t param);
+void glClearColor(float r, float g, float b, float a);
 #ifdef __cplusplus
 }
 #endif

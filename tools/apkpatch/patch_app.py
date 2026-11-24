@@ -75,6 +75,20 @@ def licence(s):
                      '    invoke-virtual {v2, v3}, Landroid/content/Intent;->setPackage(Ljava/lang/String;)Landroid/content/Intent;\n', 1)
 
 
+def resume(s):
+    old = '    invoke-super {p0}, Landroid/app/Activity;->onResume()V\n'
+    return s.replace(old, old + '\n    invoke-static {p0}, Lcom/paragon/Immersive;->apply(Landroid/app/Activity;)V\n', 1)
+
+
+def oncreate(s):
+    old = '    invoke-super {p0, p1}, Landroid/app/Activity;->onCreate(Landroid/os/Bundle;)V\n'
+    return s.replace(old, old + '\n    invoke-static {p0}, Lcom/paragon/Immersive;->apply(Landroid/app/Activity;)V\n', 1)
+
+
+import shutil
+shutil.copytree(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'smali'), os.path.join(d, 'smali'), dirs_exist_ok=True)
+edit('smali/com/gamevil/nexus2/NexusGLActivity.smali', resume)
+edit('smali/com/gamevil/nexus2/NexusGLActivity.smali', oncreate)
 edit('AndroidManifest.xml', manifest)
 edit('apktool.yml', apktool_yml)
 edit('smali/com/gamevil/zenonia/ZenoniaLouncher.smali', launcher)

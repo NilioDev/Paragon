@@ -5,6 +5,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <setjmp.h>
 #include <sys/mman.h>
 
 uint32_t R[16];
@@ -20,7 +21,10 @@ void rt_log(const char *fmt, ...) {
     vsnprintf(buf, sizeof buf, fmt, ap);
     va_end(ap);
     backend_log(buf);
+    rt_diag_line(buf, 0);
 }
+
+static jmp_buf *fatal_jmp;
 
 void rt_fatal(const char *fmt, ...) {
     char buf[1024];
@@ -32,6 +36,10 @@ void rt_fatal(const char *fmt, ...) {
     char regs[256];
     snprintf(regs, sizeof regs, "regs r0=%x r1=%x r2=%x r3=%x r4=%x sp=%x lr=%x", R[0], R[1], R[2], R[3], R[4], R[13], R[14]);
     backend_log(regs);
+    rt_diag_line(buf, 1);
+    rt_diag_line(regs, 1);
+    rt_diag_dead();
+    if (fatal_jmp) longjmp(*fatal_jmp, 1);
     abort();
 }
 
@@ -129,8 +137,19 @@ void rt_jump(uint32_t t) {
 }
 
 uint32_t rt_enter(rt_fn fn, int nargs, const uint32_t *args) {
+    if (rt_is_dead()) return 0;
     uint32_t save_sp = R[13], save_lr = R[14];
-    if (depth == 0) R[13] = GUEST_STACK_HI - 64;
+    jmp_buf jb, *outer = fatal_jmp;
+    if (depth == 0) {
+        R[13] = GUEST_STACK_HI - 64;
+        if (setjmp(jb)) {       /* rt_fatal: the game is stopped, the overlay shows why */
+            fatal_jmp = outer;
+            depth = 0;
+            PEND = 0;
+            return 0;
+        }
+        fatal_jmp = &jb;
+    }
     depth++;
     for (int i = 0; i < nargs && i < 4; i++) R[i] = args[i];
     if (nargs > 4) {
@@ -144,7 +163,7 @@ uint32_t rt_enter(rt_fn fn, int nargs, const uint32_t *args) {
     if (PEND && PEND != GUEST_MAGIC_RET) rt_fatal("unresolved jump to %08x", PEND);
     PEND = 0;
     depth--;
-    if (depth == 0) rt_jni_end_entry();
+    if (depth == 0) { rt_jni_end_entry(); fatal_jmp = outer; }
     uint32_t r0 = R[0];
     R[13] = save_sp;
     R[14] = save_lr;

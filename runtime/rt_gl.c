@@ -36,10 +36,14 @@ void I_glTexImage2D(void) {
                  rt_arg(6), rt_arg(7), GPTR(rt_arg(8)));
 }
 void I_glTexParameterx(void) { glTexParameterx(R[0], R[1], (int32_t)R[2]); }
+extern int paragon_screen_w;
 void I_glTexSubImage2D(void) {
-    glTexSubImage2D(R[0], (int32_t)R[1], (int32_t)R[2], (int32_t)R[3], (int32_t)rt_arg(4), (int32_t)rt_arg(5),
+    int32_t w = (int32_t)rt_arg(4);
+    if (w == 320 && (int32_t)rt_arg(5) == 240) w = paragon_screen_w;   /* glDrawFrame hardcodes 320x240 */
+    glTexSubImage2D(R[0], (int32_t)R[1], (int32_t)R[2], (int32_t)R[3], w, (int32_t)rt_arg(5),
                     rt_arg(6), rt_arg(7), GPTR(rt_arg(8)));
 }
 void I_glTranslatex(void) { glTranslatex((int32_t)R[0], (int32_t)R[1], (int32_t)R[2]); }
 void I_glVertexPointer(void) { glVertexPointer((int32_t)R[0], R[1], (int32_t)R[2], GPTR(R[3])); }
-void I_glViewport(void) { glViewport((int32_t)R[0], (int32_t)R[1], (int32_t)R[2], (int32_t)R[3]); }
+void rt_note_viewport(int w, int h);
+void I_glViewport(void) { rt_note_viewport((int32_t)R[2], (int32_t)R[3]); glViewport((int32_t)R[0], (int32_t)R[1], (int32_t)R[2], (int32_t)R[3]); }

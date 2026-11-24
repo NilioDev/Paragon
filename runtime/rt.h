@@ -117,6 +117,13 @@ uint32_t rt_arg(int i);                  /* i-th 32-bit argument of the current 
 void rt_log(const char *fmt, ...);
 int rt_vformat(char *out, size_t cap, const char *fmt, uint32_t (*next)(void *), void *ctx);
 
+/* ---- presentation / diagnostics (present.c) ---- */
+void rt_diag_line(const char *msg, int alert);
+void rt_diag_dead(void);
+int rt_is_dead(void);
+void rt_present(uint32_t pixels, int w, int h);
+void rt_present_reset(void);
+
 /* ---- backend (platform) hooks ---- */
 void backend_jni(uint32_t index);        /* a guest call of JNIEnv function #index */
 void backend_vm(uint32_t index);         /* a guest call of JavaVM function #index */

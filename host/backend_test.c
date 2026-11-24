@@ -90,7 +90,7 @@ void glTexImage2D(uint32_t t, int32_t l, int32_t i, int32_t w, int32_t h, int32_
 void glTexParameterx(uint32_t a, uint32_t b, int32_t c) { (void)a; (void)b; (void)c; }
 void glTexSubImage2D(uint32_t t, int32_t l, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t f, uint32_t ty, const void *p) {
     (void)t; (void)l; (void)f;
-    if (ty != 0x8363 || !p || w > 512 || h > 512) return;
+    if (ty != 0x8363 || !p || w > 512 || h != 240) return;
     for (int r = 0; r < h; r++) memcpy(fb + (y + r) * 512 + x, (const uint16_t *)p + r * w, (size_t)w * 2);
     if (x + w > fbw) fbw = x + w;
     if (y + h > fbh) fbh = y + h;
@@ -98,6 +98,11 @@ void glTexSubImage2D(uint32_t t, int32_t l, int32_t x, int32_t y, int32_t w, int
 void glTranslatex(int32_t x, int32_t y, int32_t z) { (void)x; (void)y; (void)z; }
 void glVertexPointer(int32_t s, uint32_t t, int32_t st, const void *p) { (void)s; (void)t; (void)st; (void)p; }
 void glViewport(int32_t x, int32_t y, int32_t w, int32_t h) { (void)x; (void)y; (void)w; (void)h; }
+void glOrthof(float l, float r, float b, float t, float n, float f) { (void)l; (void)r; (void)b; (void)t; (void)n; (void)f; }
+void glColor4f(float r, float g, float b, float a) { (void)r; (void)g; (void)b; (void)a; }
+void glBlendFunc(uint32_t s, uint32_t d) { (void)s; (void)d; }
+void glPixelStorei(uint32_t p, int32_t v) { (void)p; (void)v; }
+void glClearColor(float r, float g, float b, float a) { (void)r; (void)g; (void)b; (void)a; }
 
 static void dump(const char *dir, int frame) {
     char p[1024];
@@ -118,6 +123,7 @@ static void dump(const char *dir, int frame) {
 #define CLS 0   /* jclass argument: the game never uses it */
 static void call(const char *name, int n, uint32_t a, uint32_t b, uint32_t c) {
     uint32_t args[5] = { GUEST_ENV, CLS, a, b, c };
+    if (verbose && !strstr(name, "NativeRender")) fprintf(stderr, "> %s(%d,%d,%d)\n", name + 32, (int)a, (int)b, (int)c);
     rt_export_call(name, n, args);
 }
 
@@ -126,6 +132,8 @@ int main(int argc, char **argv) {
     assets = argv[1]; savedir = argv[2];
     int frames = atoi(argv[3]), every = argc > 5 ? atoi(argv[5]) : 30;
     verbose = getenv("VERBOSE") != NULL;
+    extern int paragon_screen_w;
+    if (getenv("SCREENW")) paragon_screen_w = atoi(getenv("SCREENW"));
     if (rt_init(zen_image, zen_image_size)) { fprintf(stderr, "rt_init failed\n"); return 1; }
     uint32_t vm[2] = { GUEST_ENV + 0x10, 0 };
     rt_export_call("JNI_OnLoad", 2, vm);
