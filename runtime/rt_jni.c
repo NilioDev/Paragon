@@ -27,6 +27,7 @@ static void *hget(uint32_t h) { return is_handle(h) ? htab[(h - HBASE) / 4] : NU
 static void hdel(uint32_t h) {
     if (!is_handle(h)) return;
     uint32_t i = (h - HBASE) / 4;
+    if (hglobal[i] == 2) return;   /* cached method records stay */
     if (htab[i]) jb_delete_ref(htab[i], hglobal[i]);
     htab[i] = NULL;
 }
@@ -51,11 +52,21 @@ void rt_jni_end_entry(void) {
 }
 
 /* methods: remember the signature so arguments can be decoded */
-struct method { void *mid; char *sig; };
-static uint32_t new_method(void *mid, const char *sig) {
+struct method { void *cls; char *name; char *sig; void *mid; uint32_t handle; };
+#define MAXM 256
+static struct method *methods[MAXM];
+static int nmethods;
+/* the game looks methods up again on every call: cache them so handles do not leak */
+static uint32_t get_method(void *cls, const char *name, const char *sig) {
+    for (int k = 0; k < nmethods; k++)
+        if (!strcmp(methods[k]->name, name) && !strcmp(methods[k]->sig, sig)) return methods[k]->handle;
+    void *mid = jb_get_static_method(cls, name, sig);
+    if (!mid) return 0;
     struct method *m = malloc(sizeof *m);
-    m->mid = mid; m->sig = strdup(sig);
-    return hput(m, 2);
+    m->cls = cls; m->name = strdup(name); m->sig = strdup(sig); m->mid = mid;
+    m->handle = hput(m, 2);
+    if (nmethods < MAXM) methods[nmethods++] = m;
+    return m->handle;
 }
 
 /* argument readers */
@@ -155,9 +166,7 @@ void backend_jni(uint32_t i) {
         if (is_garray(R[1])) garray_free(R[1]); else hdel(R[1]);
         return;
     case 113: {                                                             /* GetStaticMethodID */
-        const char *name = (const char *)HP(R[2]), *sig = (const char *)HP(R[3]);
-        void *mid = jb_get_static_method(hget(R[1]), name, sig);
-        R[0] = mid ? new_method(mid, sig) : 0;
+        R[0] = get_method(hget(R[1]), (const char *)HP(R[2]), (const char *)HP(R[3]));
         return; }
     case 228: R[0] = 0; return;                                             /* ExceptionCheck */
     case 167: R[0] = hput(jb_new_string((const char *)HP(R[1])), 0); return; /* NewStringUTF */

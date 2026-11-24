@@ -23,7 +23,7 @@ and everything derived from it is written to `work/` and `generated/`, which are
 - [x] M1: original library boots in the harness and loads assets
 - [x] M2: harness renders the title screen to a PNG (the game draws into a 320x240 RGB565 software framebuffer and uploads it with glTexSubImage2D each frame)
 - [x] M3: recompiler output runs natively on x86-64 Linux: title, menus, character creation and story intro (host/backend_test.c)
-- [ ] M4: playable arm64 APK on a 64-bit-only phone
+- [ ] M4: playable arm64 APK on a 64-bit-only phone (first test build: `tools/build_apk.sh`; on the Linux host 40,000 frames of simulated play run without errors)
 - [ ] M5: widescreen and other improvements
 
 ## Facts about the original library (v1.2.0)
@@ -39,3 +39,12 @@ python -m venv .venv && .venv/bin/pip install unicorn pyelftools capstone pillow
 # extract your APK first: lib/armeabi/libmerkava.so and assets/
 SHOTS=out EVERY=60 SAVEDIR=save .venv/bin/python tools/harness/run.py work/libmerkava.so work/assets 600
 ```
+
+## Building the APK
+
+```sh
+tools/build_apk.sh ORIGINAL.apk Zenonia-64bit.apk my.jks KEYSTORE_PASSWORD
+```
+
+The script recompiles the native library, builds it for `arm64-v8a` and `x86_64`, patches the Java side for
+Android 14+ (`tools/apkpatch/patch_app.py`) and signs the result. The Google Play licence check is kept.
