@@ -8,7 +8,8 @@ Usage: patch_app.py DECODED_DIR
 - licence service bind gets an explicit package (implicit service intents are rejected since Android 5)
 - IMEI lookup replaced by ANDROID_ID (getDeviceId throws on Android 10+)
 - org.apache.http.legacy declared (used by the licence policy)
-- sound: looping tracks restart on completion and after returning from the background
+- sound: gapless looping (chained MediaPlayers); the running track restarts after returning from the background
+- skip button hit area scaled to the screen (was a fixed 70x70 pixels)
 The Google Play licence check itself is kept.
 """
 import os
@@ -106,17 +107,35 @@ def sound_resume(s):
     return s.replace(old, old + '\n    invoke-static {}, Lcom/paragon/SoundFix;->resume()V\n', 1)
 
 
-def clip_public(s):
-    return s.replace('.field private mLoop:Z', '.field public mLoop:Z', 1)
+AC = 'Lcom/gamevil/nexus2/ui/AudioClip;'
+MP = 'Landroid/media/MediaPlayer;'
+LST = 'Landroid/media/MediaPlayer$OnCompletionListener;'
+
+
+def clip_fields(s):
+    s = s.replace('.field private mLoop:Z', '.field public mLoop:Z', 1)
+    s = s.replace('.field private mPlayer:' + MP, '.field public mPlayer:' + MP + '\n\n.field public pNext:' + MP + '\n\n'
+                  '.field public pCtx:Landroid/content/Context;\n\n.field public pResId:I\n\n.field public pListener:' + LST, 1)
+    # constructor: remember context, resource and completion listener for the chained loop player
+    old = '    invoke-direct {p0}, Ljava/lang/Object;-><init>()V\n'
+    s = s.replace(old, old + '\n    iput-object p1, p0, ' + AC + '->pCtx:Landroid/content/Context;\n\n'
+                  '    iput p2, p0, ' + AC + '->pResId:I\n', 1)
+    old = '    invoke-virtual {v1, v2}, ' + MP + '->setOnCompletionListener(' + LST + ')V\n'
+    s = s.replace(old, old + '\n    iput-object v2, p0, ' + AC + '->pListener:' + LST + '\n', 1)
+    # setLooping: chain a second player instead of MediaPlayer.setLooping
+    old = '    const/4 v1, 0x1\n\n    invoke-virtual {v0, v1}, ' + MP + '->setLooping(Z)V\n'
+    if old not in s:
+        raise SystemExit('setLooping pattern not found')
+    s = s.replace(old, '    invoke-static {p0}, Lcom/paragon/SoundFix;->armLoop(' + AC + ')V\n', 1)
+    s = after_prologue(s, '.method public release()V\n', '    invoke-static {p0}, Lcom/paragon/SoundFix;->dropNext(' + AC + ')V\n\n')
+    return s
 
 
 def clip_completion(s):
     old = '''    iget-object v0, p0, Lcom/gamevil/nexus2/ui/AudioClip$1;->this$0:Lcom/gamevil/nexus2/ui/AudioClip;
 '''
     new = old + '''
-    iget-boolean v1, v0, Lcom/gamevil/nexus2/ui/AudioClip;->mLoop:Z
-
-    invoke-static {p1, v1}, Lcom/paragon/SoundFix;->completed(Landroid/media/MediaPlayer;Z)Z
+    invoke-static {v0, p1}, Lcom/paragon/SoundFix;->advance(Lcom/gamevil/nexus2/ui/AudioClip;Landroid/media/MediaPlayer;)Z
 
     move-result v1
 
@@ -126,6 +145,42 @@ def clip_completion(s):
 
     :paragon_stop
 '''
+    return s.replace(old, new, 1)
+
+
+def skip_button(s):
+    """The skip hit area was 70x70 screen pixels, sized for 480x320 phones; scale it with the screen."""
+    ui = 'Lcom/gamevil/nexus2/ui/UIControllerView;'
+    old = """    const/16 v2, 0x46
+
+    .line 38
+    sget v0, %s->width:I
+
+    sub-int/2addr v0, v2
+
+    const/4 v1, 0x0
+
+    invoke-virtual {p0, v0, v1, v2, v2}, Lcom/gamevil/zenonia/ui/UISkipButton;->setPosition(IIII)V
+""" % ui
+    new = """    sget v0, %s->width:I
+
+    mul-int/lit8 v2, v0, 0x46
+
+    div-int/lit16 v2, v2, 0x1e0
+
+    sget v1, %s->height:I
+
+    mul-int/lit8 v1, v1, 0x46
+
+    div-int/lit16 v1, v1, 0x140
+
+    sub-int/2addr v0, v2
+
+    const/4 v3, 0x0
+
+    invoke-virtual {p0, v0, v3, v2, v1}, Lcom/gamevil/zenonia/ui/UISkipButton;->setPosition(IIII)V
+""" % (ui, ui)
+    s = s.replace('.method public initialize()V\n    .locals 3\n', '.method public initialize()V\n    .locals 4\n', 1)
     return s.replace(old, new, 1)
 
 
@@ -140,6 +195,7 @@ edit('smali/com/android/vending/licensing/LicenseChecker.smali', licence)
 edit('smali/com/gamevil/nexus2/ui/NexusSound.smali', sound_play)
 edit('smali/com/gamevil/zenonia/ui/ZenoniaUIControllerView.smali', sound_stop)
 edit('smali/com/gamevil/nexus2/NexusGLActivity.smali', sound_resume)
-edit('smali/com/gamevil/nexus2/ui/AudioClip.smali', clip_public)
+edit('smali/com/gamevil/nexus2/ui/AudioClip.smali', clip_fields)
 edit('smali/com/gamevil/nexus2/ui/AudioClip$1.smali', clip_completion)
+edit('smali/com/gamevil/zenonia/ui/UISkipButton.smali', skip_button)
 print('patched', d)

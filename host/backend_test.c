@@ -57,7 +57,7 @@ void jb_call_static(void *cls, void *mid, const char *sig, const jb_value *a, in
     } else if (!strcmp(m, "getAbsolueFilePath")) {
         ret->l = mk(O_STRING, savedir);
     } else {
-        if (verbose) fprintf(stderr, "  java %s%s\n", m, sig);
+        if (verbose) fprintf(stderr, "  java %s%s %d %d %d @%llu\n", m, sig, n > 0 ? a[0].i : 0, n > 1 ? a[1].i : 0, n > 2 ? a[2].i : 0, (unsigned long long)(now_us / 1000));
         memset(ret, 0, sizeof *ret);
     }
 }
