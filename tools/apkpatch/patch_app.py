@@ -186,18 +186,18 @@ def skip_button(s):
     return s.replace(old, new, 1)
 
 
-def hud_touch(cls, pos_reg, width_reg):
-    """Touch areas over HUD elements the game draws itself follow the centred 320-pixel HUD."""
+def hud_touch(cls, *conv):
+    """Touch areas over controls the game draws itself: replace getConvertedX(reg) by a Wide helper.
+    conv: (register, helper) pairs."""
     def fn(s):
         call = '    invoke-virtual {p0, %s}, Lcom/gamevil/zenonia/ui/' + cls + ';->getConvertedX(I)I\n'
-        for reg, helper in ((pos_reg, 'uiX480'), (width_reg, 'uiW480')):
+        for reg, helper in conv:
             old = call % reg
             if old not in s:
                 raise SystemExit('getConvertedX call not found in ' + cls)
             s = s.replace(old, '    invoke-static {%s}, Lcom/paragon/Wide;->%s(I)I\n' % (reg, helper), 1)
         return s
     return fn
-
 
 import shutil
 shutil.copytree(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'smali'), os.path.join(d, 'smali'), dirs_exist_ok=True)
@@ -213,6 +213,8 @@ edit('smali/com/gamevil/nexus2/NexusGLActivity.smali', sound_resume)
 edit('smali/com/gamevil/nexus2/ui/AudioClip.smali', clip_fields)
 edit('smali/com/gamevil/nexus2/ui/AudioClip$1.smali', clip_completion)
 edit('smali/com/gamevil/zenonia/ui/UISkipButton.smali', skip_button)
-edit('smali/com/gamevil/zenonia/ui/UIQuickSlot.smali', hud_touch('UIQuickSlot', 'v0', 'v2'))
-edit('smali/com/gamevil/zenonia/ui/UIQuickSlotSwapButton.smali', hud_touch('UIQuickSlotSwapButton', 'v0', 'v2'))
+edit('smali/com/gamevil/zenonia/ui/UIQuickSlot.smali', hud_touch('UIQuickSlot', ('v0', 'uiX480'), ('v2', 'uiW480')))
+edit('smali/com/gamevil/zenonia/ui/UIQuickSlotSwapButton.smali', hud_touch('UIQuickSlotSwapButton', ('v0', 'uiX480'), ('v2', 'uiW480')))
+edit('smali/com/gamevil/zenonia/ui/UISelectButton.smali', hud_touch('UISelectButton', ('v0', 'uiR480'), ('v3', 'uiW480')))
+edit('smali/com/gamevil/zenonia/ui/UIDirectionPad.smali', hud_touch('UIDirectionPad', ('v3', 'uiW480')))
 print('patched', d)

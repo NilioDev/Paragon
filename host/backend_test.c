@@ -144,6 +144,12 @@ int main(int argc, char **argv) {
     call("Java_com_gamevil_nexus2_Natives_InitializeJNIGlobalRef", 2, 0, 0, 0);
     call("Java_com_gamevil_nexus2_Natives_NativeInit", 2, 0, 0, 0);
     call("Java_com_gamevil_nexus2_Natives_NativeResize", 4, 800, 480, 0);
+    if (getenv("SHOWPAD")) {   /* the Java side switches the on-screen controls on in game */
+        call("Java_com_gamevil_nexus2_Natives_SetShowDirectionButton", 3, 1, 0, 0);
+        call("Java_com_gamevil_nexus2_Natives_SetShowSelectButton", 3, 1, 0, 0);
+        call("Java_com_gamevil_nexus2_Natives_SetShowCancelButton", 3, 1, 0, 0);
+        call("Java_com_gamevil_nexus2_Natives_SetShowGameMenuButton", 3, 1, 0, 0);
+    }
     FILE *in = argc > 6 ? fopen(argv[6], "r") : NULL;
     int next_ev = -1, ev_a = 0, ev_b = 0, ev_c = 0;
     char kind[32] = { 0 };

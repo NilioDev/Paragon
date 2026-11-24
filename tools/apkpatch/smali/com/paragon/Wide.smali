@@ -86,3 +86,17 @@
     div-int/2addr v1, v0
     return v1
 .end method
+
+# x in the original 480-pixel layout, for controls anchored to the right edge of the screen
+.method public static uiR480(I)I
+    .locals 3
+    sget v0, Lcom/paragon/Wide;->gameW:I
+    rsub-int v1, p0, 0x1e0
+    mul-int/lit8 v1, v1, 0x2
+    sget v2, Lcom/gamevil/nexus2/ui/UIControllerView;->width:I
+    mul-int/2addr v1, v2
+    mul-int/lit8 v0, v0, 0x3
+    div-int/2addr v1, v0
+    sub-int v1, v2, v1
+    return v1
+.end method

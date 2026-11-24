@@ -15,14 +15,39 @@
 int paragon_center_maps = 1;
 static uint32_t uibuf;
 static int depth;
-static uint32_t s_w, s_vw, s_fb, s_pix, s_g, s_gfx, s_clip_g, s_clip_gfx;
+static uint32_t s_w, s_vw, s_xo, s_fb, s_pix, s_g, s_gfx, s_clip_g, s_clip_gfx;
 
 static void copy_rows(uint32_t dst, int dstride, uint32_t src, int sstride, int w) {
     for (int y = 0; y < UI_H; y++) memcpy(HP(dst + (uint32_t)(y * dstride)), HP(src + (uint32_t)(y * sstride)), (size_t)w * 2);
 }
 
-/* Start a pass that sees a centred, vw-pixel-wide screen. */
-static void pass_begin(uint32_t vw) {
+/* hand the game a vw-pixel-wide screen whose left edge is at xo of the real one */
+static void swap_in(void) {
+    copy_rows(uibuf, (int)s_vw * 2, s_pix + s_xo * 2, (int)s_w * 2, (int)s_vw);
+    WR32(s_fb, s_vw);
+    WR32(s_fb + 0x10, uibuf);
+    WR32(G_SCREEN_W, s_vw);
+    s_clip_g = RD16(s_g + 0x4c);
+    if (s_clip_g > s_vw) WR16(s_g + 0x4c, s_vw);
+    s_gfx = RD32(GUEST_GsGraphics);
+    if (s_gfx) {
+        s_clip_gfx = RD16(s_gfx + 0x44);
+        if (s_clip_gfx > s_vw) WR16(s_gfx + 0x44, s_vw);
+    }
+}
+
+/* copy columns c0..c1 of the pass buffer back and give the game its real screen again */
+static void swap_out(uint32_t c0, uint32_t c1) {
+    copy_rows(s_pix + (s_xo + c0) * 2, (int)s_w * 2, uibuf + c0 * 2, (int)s_vw * 2, (int)(c1 - c0));
+    WR32(s_fb, s_w);
+    WR32(s_fb + 0x10, s_pix);
+    WR32(G_SCREEN_W, s_w);
+    WR16(s_g + 0x4c, s_clip_g);
+    if (s_gfx) WR16(s_gfx + 0x44, s_clip_gfx);
+}
+
+/* Start a pass that sees a vw-pixel-wide screen at xo (xo < 0: centred). */
+static void pass_begin(uint32_t vw, int xo) {
     if (depth++) return;
     s_w = RD32(G_SCREEN_W);
     s_vw = vw;
@@ -35,47 +60,44 @@ static void pass_begin(uint32_t vw) {
     if (!s_fb || RD32(s_fb) != s_w) { s_w = 0; return; }
     if (!uibuf) uibuf = g_malloc(1024 * UI_H * 2);
     s_pix = RD32(s_fb + 0x10);
-    uint32_t xo = (s_w - vw) / 2 * 2;
-    copy_rows(uibuf, (int)vw * 2, s_pix + xo, (int)s_w * 2, (int)vw);
-    WR32(s_fb, vw);
-    WR32(s_fb + 0x10, uibuf);
-    WR32(G_SCREEN_W, vw);
-    s_clip_g = RD16(s_g + 0x4c);
-    if (s_clip_g > vw) WR16(s_g + 0x4c, vw);
-    s_gfx = RD32(GUEST_GsGraphics);
-    if (s_gfx) {
-        s_clip_gfx = RD16(s_gfx + 0x44);
-        if (s_clip_gfx > vw) WR16(s_gfx + 0x44, vw);
-    }
+    s_xo = xo < 0 ? (s_w - vw) / 2 : (uint32_t)xo;
+    swap_in();
 }
 
-static void pass_end(int clear_sides) {
+static void pass_end(int clear_sides, uint32_t c0, uint32_t c1) {
     if (--depth || !s_w) return;
-    uint32_t xo = (s_w - s_vw) / 2 * 2;
-    copy_rows(s_pix + xo, (int)s_w * 2, uibuf, (int)s_vw * 2, (int)s_vw);
+    swap_out(c0, c1);
     if (clear_sides)
         for (int y = 0; y < UI_H; y++) {
-            memset(HP(s_pix + (uint32_t)y * s_w * 2), 0, xo);
-            memset(HP(s_pix + (uint32_t)y * s_w * 2 + xo + s_vw * 2), 0, (s_w - s_vw) * 2 - xo);
+            memset(HP(s_pix + (uint32_t)y * s_w * 2), 0, s_xo * 2);
+            memset(HP(s_pix + ((uint32_t)y * s_w + s_xo + s_vw) * 2), 0, (s_w - s_vw - s_xo) * 2);
         }
-    WR32(s_fb, s_w);
-    WR32(s_fb + 0x10, s_pix);
-    WR32(G_SCREEN_W, s_w);
-    WR16(s_g + 0x4c, s_clip_g);
-    if (s_gfx) WR16(s_gfx + 0x44, s_clip_gfx);
 }
 
 /* run the original guest function f inside a pass (full-screen states clear the sides) */
-static void run_pass(rt_fn f, uint32_t vw, int clear_sides) {
+static void run_pass_at(rt_fn f, uint32_t vw, int xo, int clear_sides, uint32_t c0, uint32_t c1) {
     uint32_t lr = R[14];
-    pass_begin(vw);
+    pass_begin(vw, xo);
     f();
     uint32_t r0 = R[0];
-    pass_end(clear_sides);
+    pass_end(clear_sides, c0, c1);
     R[0] = r0;
     R[14] = lr;
 }
+static void run_pass(rt_fn f, uint32_t vw, int clear_sides) { run_pass_at(f, vw, -1, clear_sides, 0, vw); }
 static void ui_pass(rt_fn f) { run_pass(f, UI_W, 0); }
+
+/* run f on the real, full-width screen even if a pass is active (things that belong at the screen edge) */
+static void escape_pass(rt_fn f) {
+    if (!depth || !s_w) { f(); return; }
+    uint32_t lr = R[14];
+    swap_out(0, s_vw);
+    f();
+    uint32_t r0 = R[0];
+    swap_in();
+    R[0] = r0;
+    R[14] = lr;
+}
 
 /* Maps narrower than the screen (castle rooms, houses) were never possible at 320 pixels; the game
  * would pin them to the left edge.  Draw them in a pass exactly as wide as the map, centred. */
@@ -111,4 +133,20 @@ void H_ZN6CMvMap11SetBasePosYEi(void) {
     WR16(map + 0xd0, (uint32_t)y);
     int32_t t = ((int32_t)(int16_t)y - 15) >> 4;
     WR8(map + 0xcd, (uint32_t)(t < 0 ? 0 : t));
+}
+
+/* The minimap belongs in the top-left corner of the screen, not of the centred HUD. */
+void H_ZN6CMvMap11DrawMiniMapEv(void) { escape_pass(F_089d14); }
+
+/* drawDPad draws the on-screen controls laid out for 320 pixels: the direction pad and the top-left
+ * button on the left half, the action and top-right buttons on the right half.  Draw it twice, keeping
+ * the left half anchored to the left edge and the right half to the right edge, where the Java touch
+ * areas are. */
+void HdrawDPad(void) {
+    uint32_t sw = RD32(G_SCREEN_W);
+    if (sw <= UI_W || depth) { F_03c350(); return; }
+    uint32_t r[4] = { R[0], R[1], R[2], R[3] };
+    run_pass_at(F_03c350, UI_W, 0, 0, 0, UI_W / 2);
+    R[0] = r[0]; R[1] = r[1]; R[2] = r[2]; R[3] = r[3];
+    run_pass_at(F_03c350, UI_W, (int)(sw - UI_W), 0, UI_W / 2, UI_W);
 }
