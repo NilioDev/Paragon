@@ -148,6 +148,12 @@ int main(int argc, char **argv) {
         while (next_ev == f) {
             if (!strcmp(kind, "input")) call("Java_com_gamevil_nexus2_Natives_setInputEvent", 5, (uint32_t)ev_a, (uint32_t)ev_b, (uint32_t)ev_c);
             else if (!strcmp(kind, "clet")) call("Java_com_gamevil_nexus2_Natives_handleCletEvent", 5, (uint32_t)ev_a, (uint32_t)ev_b, (uint32_t)ev_c);
+            else if (!strcmp(kind, "pause")) call("Java_com_gamevil_nexus2_Natives_NativePauseClet", 2, 0, 0, 0);
+            else if (!strcmp(kind, "resume")) call("Java_com_gamevil_nexus2_Natives_NativeResumeClet", 2, 0, 0, 0);
+            else if (!strcmp(kind, "surface")) {   /* GL context lost: onSurfaceCreated + onSurfaceChanged */
+                call("Java_com_gamevil_nexus2_Natives_NativeInit", 2, 0, 0, 0);
+                call("Java_com_gamevil_nexus2_Natives_NativeResize", 4, (uint32_t)ev_a, (uint32_t)ev_b, 0);
+            }
             if (fscanf(in, "%d %31s %d %d %d", &next_ev, kind, &ev_a, &ev_b, &ev_c) != 5) next_ev = -1;
         }
         call("Java_com_gamevil_nexus2_Natives_NativeRender", 2, 0, 0, 0);

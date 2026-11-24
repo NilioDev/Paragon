@@ -8,6 +8,7 @@ Usage: patch_app.py DECODED_DIR
 - licence service bind gets an explicit package (implicit service intents are rejected since Android 5)
 - IMEI lookup replaced by ANDROID_ID (getDeviceId throws on Android 10+)
 - org.apache.http.legacy declared (used by the licence policy)
+- sound: looping tracks restart on completion and after returning from the background
 The Google Play licence check itself is kept.
 """
 import os
@@ -85,6 +86,49 @@ def oncreate(s):
     return s.replace(old, old + '\n    invoke-static {p0}, Lcom/paragon/Immersive;->apply(Landroid/app/Activity;)V\n', 1)
 
 
+def after_prologue(s, header, code):
+    i = s.index(header)
+    j = s.index('    .prologue\n', i) + len('    .prologue\n')
+    return s[:j] + code + s[j:]
+
+
+def sound_play(s):
+    return after_prologue(s, '.method public static playSound(IIZ)V\n',
+                          '    invoke-static {p0, p1, p2}, Lcom/paragon/SoundFix;->noteLoop(IIZ)V\n\n')
+
+
+def sound_stop(s):
+    return after_prologue(s, '.method public OnStopSound()V\n', '    invoke-static {}, Lcom/paragon/SoundFix;->noteStop()V\n\n')
+
+
+def sound_resume(s):
+    old = '    invoke-static {}, Lcom/gamevil/nexus2/Natives;->InitializeJNIGlobalRef()V\n'
+    return s.replace(old, old + '\n    invoke-static {}, Lcom/paragon/SoundFix;->resume()V\n', 1)
+
+
+def clip_public(s):
+    return s.replace('.field private mLoop:Z', '.field public mLoop:Z', 1)
+
+
+def clip_completion(s):
+    old = '''    iget-object v0, p0, Lcom/gamevil/nexus2/ui/AudioClip$1;->this$0:Lcom/gamevil/nexus2/ui/AudioClip;
+'''
+    new = old + '''
+    iget-boolean v1, v0, Lcom/gamevil/nexus2/ui/AudioClip;->mLoop:Z
+
+    invoke-static {p1, v1}, Lcom/paragon/SoundFix;->completed(Landroid/media/MediaPlayer;Z)Z
+
+    move-result v1
+
+    if-eqz v1, :paragon_stop
+
+    return-void
+
+    :paragon_stop
+'''
+    return s.replace(old, new, 1)
+
+
 import shutil
 shutil.copytree(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'smali'), os.path.join(d, 'smali'), dirs_exist_ok=True)
 edit('smali/com/gamevil/nexus2/NexusGLActivity.smali', resume)
@@ -93,4 +137,9 @@ edit('AndroidManifest.xml', manifest)
 edit('apktool.yml', apktool_yml)
 edit('smali/com/gamevil/zenonia/ZenoniaLouncher.smali', launcher)
 edit('smali/com/android/vending/licensing/LicenseChecker.smali', licence)
+edit('smali/com/gamevil/nexus2/ui/NexusSound.smali', sound_play)
+edit('smali/com/gamevil/zenonia/ui/ZenoniaUIControllerView.smali', sound_stop)
+edit('smali/com/gamevil/nexus2/NexusGLActivity.smali', sound_resume)
+edit('smali/com/gamevil/nexus2/ui/AudioClip.smali', clip_public)
+edit('smali/com/gamevil/nexus2/ui/AudioClip$1.smali', clip_completion)
 print('patched', d)

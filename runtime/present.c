@@ -49,6 +49,7 @@
 extern int paragon_screen_w;
 int paragon_view_w = 800, paragon_view_h = 480;   /* surface size, from the game's glViewport */
 int paragon_smooth = 1;                            /* linear filtering when scaling */
+int paragon_keep_aspect = 0;                       /* letterbox instead of filling the surface */
 
 /* ---------------- log ring for the overlay ---------------- */
 #define LOG_LINES 12
@@ -156,10 +157,15 @@ void rt_present(uint32_t pixels, int w, int h) {
         glTexParameterx(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, (int32_t)f);
         glTexParameterx(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, (int32_t)f);
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, HP(pixels));
-        float sx = (float)paragon_view_w / (float)w, sy = (float)paragon_view_h / (float)h;
-        float s = sx < sy ? sx : sy;
-        float qw = w * s, qh = h * s;
-        float x0 = (paragon_view_w - qw) / 2, y0 = (paragon_view_h - qh) / 2;
+        /* The Java touch layer maps the whole surface onto the game screen, so the image must fill it
+         * (as the original did); letterboxing would put the touch buttons off from what is drawn. */
+        float qw = (float)paragon_view_w, qh = (float)paragon_view_h, x0 = 0, y0 = 0;
+        if (paragon_keep_aspect) {
+            float sx = (float)paragon_view_w / (float)w, sy = (float)paragon_view_h / (float)h;
+            float s = sx < sy ? sx : sy;
+            qw = w * s; qh = h * s;
+            x0 = (paragon_view_w - qw) / 2; y0 = (paragon_view_h - qh) / 2;
+        }
         draw_quad(x0, y0, x0 + qw, y0 + qh, (float)w / 512.0f, (float)h / 512.0f);
     }
     draw_text_overlay();
