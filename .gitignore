@@ -1,0 +1,9 @@
+# Never commit game data: the original APK, its assets, native code or anything derived from it.
+*.apk
+*.jks
+*.so
+/work/
+/game/
+/generated/
+__pycache__/
+.venv/
