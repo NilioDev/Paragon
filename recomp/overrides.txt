@@ -1,3 +1,9 @@
 # Guest functions replaced by hand-written C in runtime/overrides.c (named H<symbol>).
 initPlatformSize
 glDrawFrame
+wrap _ZN12CMvGameState10DrawGameUIEv
+wrap _ZN12CMvGameState15DrawGameUIIntroEv
+wrap _ZN13CMvTitleState4DrawEv
+wrap _ZN12CMvMenuState4DrawEv
+wrap _ZN7CGsLogo4DrawEv
+wrap _ZN12CMvGameState7DrawMapEv

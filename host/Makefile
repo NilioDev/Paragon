@@ -3,7 +3,7 @@ GEN ?= ../generated
 CC ?= cc
 CFLAGS ?= -O1 -g
 GENSRC := $(wildcard $(GEN)/code_*.c) $(GEN)/tables.c
-RTSRC := ../runtime/rt_core.c ../runtime/rt_libc.c ../runtime/rt_gl.c ../runtime/rt_jni.c ../runtime/overrides.c ../runtime/present.c
+RTSRC := ../runtime/rt_core.c ../runtime/rt_libc.c ../runtime/rt_gl.c ../runtime/rt_jni.c ../runtime/overrides.c ../runtime/present.c ../runtime/widescreen.c
 OBJ := $(patsubst $(GEN)/%.c,build/gen/%.o,$(GENSRC)) $(patsubst ../runtime/%.c,build/rt/%.o,$(RTSRC)) build/backend_test.o build/image.o
 
 zen_test: $(OBJ)
@@ -14,7 +14,7 @@ build/gen/%.o: $(GEN)/%.c $(GEN)/funcs.h ../runtime/rt.h
 	$(CC) $(CFLAGS) -w -fwrapv -I../runtime -c $< -o $@
 build/rt/%.o: ../runtime/%.c ../runtime/rt.h
 	@mkdir -p build/rt
-	$(CC) $(CFLAGS) -Wall -fwrapv -c $< -o $@
+	$(CC) $(CFLAGS) -Wall -fwrapv -I../runtime -I$(GEN) -c $< -o $@
 build/backend_test.o: backend_test.c ../runtime/rt.h
 	@mkdir -p build
 	$(CC) $(CFLAGS) -Wall -c $< -o $@

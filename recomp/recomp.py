@@ -523,7 +523,13 @@ class Recompiler:
         ovf = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'overrides.txt')
         self.overrides = set()
         if os.path.exists(ovf):
-            self.overrides = {l.split('#')[0].strip() for l in open(ovf)} - {''}
+            lines = [l.split('#')[0].split() for l in open(ovf)]
+            # 'NAME' replaces the guest function; 'wrap NAME' also keeps the original as F_xxxxxx so the
+            # hand-written H<NAME> can call it
+            self.overrides = {l[-1] for l in lines if l}
+            self.wraps = {l[1] for l in lines if len(l) == 2 and l[0] == 'wrap'}
+        else:
+            self.wraps = set()
         plt = self.img.elf.get_section_by_name('.plt')
         self.plt = {}              # plt entry addr -> GOT slot addr
         if plt:
@@ -545,6 +551,8 @@ class Recompiler:
             on = [n for n in names if n in self.overrides]
             if on:
                 self.hle[a] = on[0]
+                if on[0] in self.wraps:
+                    self.entries[a] = f['thumb']
             elif hn:
                 self.hle[a] = hn[0]
             elif any(n.startswith(ABORT_PREFIXES) for n in names):
@@ -672,7 +680,8 @@ class Recompiler:
                 f.write('void P_%06x(void) { rt_call(RD32(0x%xu)); }\n' % (a, slot + GBASE))
             f.write('rt_fn rt_lookup(uint32_t a) {\n  switch (a) {\n')
             for a in allf:
-                f.write('  case 0x%xu: return %s;\n' % (a + GBASE, fname(a)))
+                if a not in self.hle:
+                    f.write('  case 0x%xu: return %s;\n' % (a + GBASE, fname(a)))
             for a, n in sorted(self.hle.items()):
                 f.write('  case 0x%xu: return H%s;\n' % (a + GBASE, n))
             for a, n in sorted(self.aborts.items()):

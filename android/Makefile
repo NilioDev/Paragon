@@ -10,7 +10,7 @@ CC := $(TC)/clang --target=$(TRIPLE_$(ABI))$(API)
 CFLAGS := -O2 -fPIC -fwrapv -ffunction-sections -fdata-sections
 OUT := build/$(ABI)
 GENSRC := $(wildcard $(GEN)/code_*.c) $(GEN)/tables.c
-RTSRC := ../runtime/rt_core.c ../runtime/rt_libc.c ../runtime/rt_gl.c ../runtime/rt_jni.c ../runtime/overrides.c ../runtime/present.c
+RTSRC := ../runtime/rt_core.c ../runtime/rt_libc.c ../runtime/rt_gl.c ../runtime/rt_jni.c ../runtime/overrides.c ../runtime/present.c ../runtime/widescreen.c
 OBJ := $(patsubst $(GEN)/%.c,$(OUT)/gen/%.o,$(GENSRC)) $(patsubst ../runtime/%.c,$(OUT)/rt/%.o,$(RTSRC)) $(OUT)/backend_android.o $(OUT)/image.o
 
 $(OUT)/libmerkava.so: $(OBJ)
@@ -22,7 +22,7 @@ $(OUT)/gen/%.o: $(GEN)/%.c $(GEN)/funcs.h ../runtime/rt.h
 	$(CC) $(CFLAGS) -w -I../runtime -c $< -o $@
 $(OUT)/rt/%.o: ../runtime/%.c ../runtime/rt.h
 	@mkdir -p $(OUT)/rt
-	$(CC) $(CFLAGS) -Wall -c $< -o $@
+	$(CC) $(CFLAGS) -Wall -I../runtime -I$(GEN) -c $< -o $@
 $(OUT)/backend_android.o: backend_android.c ../runtime/rt.h
 	@mkdir -p $(OUT)
 	$(CC) $(CFLAGS) -Wall -c $< -o $@

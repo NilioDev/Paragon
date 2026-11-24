@@ -92,7 +92,7 @@ static void draw_quad(float x0, float y0, float x1, float y1, float u1, float v1
 
 static void setup_state(void) {
     if (!tex_ready) {
-        make_tex(&game_tex, 512, 512, GL_RGB, GL_UNSIGNED_SHORT_5_6_5);
+        make_tex(&game_tex, 1024, 256, GL_RGB, GL_UNSIGNED_SHORT_5_6_5);   /* up to 1024x256 (widescreen) */
         make_tex(&text_tex, 512, 128, GL_RGB, GL_UNSIGNED_SHORT_5_6_5);
         tex_ready = 1;
     }
@@ -151,7 +151,7 @@ static void draw_text_overlay(void) {
 /* Draw the game framebuffer (guest address) scaled to fit the surface, then the diagnostics. */
 void rt_present(uint32_t pixels, int w, int h) {
     setup_state();
-    if (pixels && w > 0 && h > 0 && w <= 512 && h <= 512) {
+    if (pixels && w > 0 && h > 0 && w <= 1024 && h <= 256) {
         glBindTexture(GL_TEXTURE_2D, game_tex);
         uint32_t f = paragon_smooth ? GL_LINEAR : GL_NEAREST;
         glTexParameterx(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, (int32_t)f);
@@ -166,7 +166,7 @@ void rt_present(uint32_t pixels, int w, int h) {
             qw = w * s; qh = h * s;
             x0 = (paragon_view_w - qw) / 2; y0 = (paragon_view_h - qh) / 2;
         }
-        draw_quad(x0, y0, x0 + qw, y0 + qh, (float)w / 512.0f, (float)h / 512.0f);
+        draw_quad(x0, y0, x0 + qw, y0 + qh, (float)w / 1024.0f, (float)h / 256.0f);
     }
     draw_text_overlay();
     /* leave state the way the Java UI layer expects it */

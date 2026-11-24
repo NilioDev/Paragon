@@ -63,7 +63,7 @@ void jb_call_static(void *cls, void *mid, const char *sig, const jb_value *a, in
 }
 
 /* ---------------- fake GL: keep the last uploaded framebuffer ---------------- */
-static uint16_t fb[512 * 512];
+static uint16_t fb[1024 * 512];
 static int fbw, fbh;
 void glActiveTexture(uint32_t t) { (void)t; }
 void glBindTexture(uint32_t a, uint32_t b) { (void)a; (void)b; }
@@ -90,8 +90,8 @@ void glTexImage2D(uint32_t t, int32_t l, int32_t i, int32_t w, int32_t h, int32_
 void glTexParameterx(uint32_t a, uint32_t b, int32_t c) { (void)a; (void)b; (void)c; }
 void glTexSubImage2D(uint32_t t, int32_t l, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t f, uint32_t ty, const void *p) {
     (void)t; (void)l; (void)f;
-    if (ty != 0x8363 || !p || w > 512 || h != 240) return;
-    for (int r = 0; r < h; r++) memcpy(fb + (y + r) * 512 + x, (const uint16_t *)p + r * w, (size_t)w * 2);
+    if (ty != 0x8363 || !p || w > 1024 || h != 240) return;
+    for (int r = 0; r < h; r++) memcpy(fb + (y + r) * 1024 + x, (const uint16_t *)p + r * w, (size_t)w * 2);
     if (x + w > fbw) fbw = x + w;
     if (y + h > fbh) fbh = y + h;
 }
@@ -112,7 +112,7 @@ static void dump(const char *dir, int frame) {
     fprintf(f, "P6\n%d %d\n255\n", fbw, fbh);
     for (int y = 0; y < fbh; y++)
         for (int x = 0; x < fbw; x++) {
-            uint16_t v = fb[y * 512 + x];
+            uint16_t v = fb[y * 1024 + x];
             unsigned char px[3] = { (unsigned char)(((v >> 11) & 31) * 255 / 31), (unsigned char)(((v >> 5) & 63) * 255 / 63),
                                     (unsigned char)((v & 31) * 255 / 31) };
             fwrite(px, 1, 3, f);
@@ -134,6 +134,8 @@ int main(int argc, char **argv) {
     verbose = getenv("VERBOSE") != NULL;
     extern int paragon_screen_w;
     if (getenv("SCREENW")) paragon_screen_w = atoi(getenv("SCREENW"));
+    extern int paragon_center_maps;
+    if (getenv("NOCENTER")) paragon_center_maps = 0;
     if (rt_init(zen_image, zen_image_size)) { fprintf(stderr, "rt_init failed\n"); return 1; }
     uint32_t vm[2] = { GUEST_ENV + 0x10, 0 };
     rt_export_call("JNI_OnLoad", 2, vm);

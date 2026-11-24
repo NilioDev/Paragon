@@ -10,6 +10,7 @@ Usage: patch_app.py DECODED_DIR
 - org.apache.http.legacy declared (used by the licence policy)
 - sound: gapless looping (chained MediaPlayers); the running track restarts after returning from the background
 - skip button hit area scaled to the screen (was a fixed 70x70 pixels)
+- widescreen: com.paragon.Wide picks the game width from the display; HUD touch areas follow the centred HUD
 The Google Play licence check itself is kept.
 """
 import os
@@ -79,7 +80,8 @@ def licence(s):
 
 def resume(s):
     old = '    invoke-super {p0}, Landroid/app/Activity;->onResume()V\n'
-    return s.replace(old, old + '\n    invoke-static {p0}, Lcom/paragon/Immersive;->apply(Landroid/app/Activity;)V\n', 1)
+    return s.replace(old, old + '\n    invoke-static {p0}, Lcom/paragon/Wide;->init(Landroid/app/Activity;)V\n'
+                     '\n    invoke-static {p0}, Lcom/paragon/Immersive;->apply(Landroid/app/Activity;)V\n', 1)
 
 
 def oncreate(s):
@@ -184,6 +186,19 @@ def skip_button(s):
     return s.replace(old, new, 1)
 
 
+def hud_touch(cls, pos_reg, width_reg):
+    """Touch areas over HUD elements the game draws itself follow the centred 320-pixel HUD."""
+    def fn(s):
+        call = '    invoke-virtual {p0, %s}, Lcom/gamevil/zenonia/ui/' + cls + ';->getConvertedX(I)I\n'
+        for reg, helper in ((pos_reg, 'uiX480'), (width_reg, 'uiW480')):
+            old = call % reg
+            if old not in s:
+                raise SystemExit('getConvertedX call not found in ' + cls)
+            s = s.replace(old, '    invoke-static {%s}, Lcom/paragon/Wide;->%s(I)I\n' % (reg, helper), 1)
+        return s
+    return fn
+
+
 import shutil
 shutil.copytree(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'smali'), os.path.join(d, 'smali'), dirs_exist_ok=True)
 edit('smali/com/gamevil/nexus2/NexusGLActivity.smali', resume)
@@ -198,4 +213,6 @@ edit('smali/com/gamevil/nexus2/NexusGLActivity.smali', sound_resume)
 edit('smali/com/gamevil/nexus2/ui/AudioClip.smali', clip_fields)
 edit('smali/com/gamevil/nexus2/ui/AudioClip$1.smali', clip_completion)
 edit('smali/com/gamevil/zenonia/ui/UISkipButton.smali', skip_button)
+edit('smali/com/gamevil/zenonia/ui/UIQuickSlot.smali', hud_touch('UIQuickSlot', 'v0', 'v2'))
+edit('smali/com/gamevil/zenonia/ui/UIQuickSlotSwapButton.smali', hud_touch('UIQuickSlotSwapButton', 'v0', 'v2'))
 print('patched', d)

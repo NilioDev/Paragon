@@ -141,7 +141,26 @@ static uint32_t enter(JNIEnv *e, const char *name, int n, uint32_t a, uint32_t b
 
 VOID0(InitializeJNIGlobalRef)
 VOID0(NativeDestroyClet)
-VOID0(NativeInit)
+/* NativeInit runs the game's initPlatformSize: take the widescreen width the Java side chose first */
+extern int paragon_screen_w;
+JNIEXPORT void JNICALL Java_com_gamevil_nexus2_Natives_NativeInit(JNIEnv *e, jclass c) {
+    (void)c;
+    static int have_width;
+    if (!have_width) {
+        have_width = 1;
+        jclass wc = (*e)->FindClass(e, "com/paragon/Wide");
+        jfieldID f = wc ? (*e)->GetStaticFieldID(e, wc, "gameW", "I") : NULL;
+        if (f) {
+            int w = (*e)->GetStaticIntField(e, wc, f);
+            if (w >= 320 && w <= 1024) paragon_screen_w = w & ~1;
+        }
+        if ((*e)->ExceptionCheck(e)) (*e)->ExceptionClear(e);
+        char m[64];
+        snprintf(m, sizeof m, "game width %d", paragon_screen_w);
+        backend_log(m);
+    }
+    enter(e, N(NativeInit), 2, 0, 0, 0);
+}
 VOID0(NativePauseClet)
 VOID0(NativeResumeClet)
 VOIDZ(SetDpadDrawingBlock)
