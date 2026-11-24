@@ -21,7 +21,7 @@ and everything derived from it is written to `work/` and `generated/`, which are
 ## Milestones
 
 - [x] M1: original library boots in the harness and loads assets
-- [ ] M2: harness renders the title screen to a PNG (software GLES1)
+- [x] M2: harness renders the title screen to a PNG (the game draws into a 320x240 RGB565 software framebuffer and uploads it with glTexSubImage2D each frame)
 - [ ] M3: recompiler output runs on x86-64 Linux and matches the harness frame by frame
 - [ ] M4: playable arm64 APK on a 64-bit-only phone
 - [ ] M5: widescreen and other improvements
@@ -31,3 +31,11 @@ and everything derived from it is written to `work/` and `generated/`, which are
 - `.text` about 435 KB, Thumb-1 with some ARM, about 3,800 named functions (not stripped)
 - Imports: libc basics, `__cxa_*` guards/unwind, about 27 GLES 1.x calls, `__android_log_print`
 - 16 JNI exports on `com.gamevil.nexus2.Natives`; Java callbacks `isAssetExist`, `readAssete`
+
+## Running the harness
+
+```sh
+python -m venv .venv && .venv/bin/pip install unicorn pyelftools capstone pillow
+# extract your APK first: lib/armeabi/libmerkava.so and assets/
+SHOTS=out EVERY=60 SAVEDIR=save .venv/bin/python tools/harness/run.py work/libmerkava.so work/assets 600
+```
