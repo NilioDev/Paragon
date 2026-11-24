@@ -22,7 +22,7 @@ and everything derived from it is written to `work/` and `generated/`, which are
 
 - [x] M1: original library boots in the harness and loads assets
 - [x] M2: harness renders the title screen to a PNG (the game draws into a 320x240 RGB565 software framebuffer and uploads it with glTexSubImage2D each frame)
-- [ ] M3: recompiler output runs on x86-64 Linux and matches the harness frame by frame
+- [x] M3: recompiler output runs natively on x86-64 Linux: title, menus, character creation and story intro (host/backend_test.c)
 - [ ] M4: playable arm64 APK on a 64-bit-only phone
 - [ ] M5: widescreen and other improvements
 

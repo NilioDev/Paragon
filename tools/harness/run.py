@@ -186,6 +186,7 @@ def impl(name):
         if px: LASTTEX.update(w=w,h=h,fm=fm,ty=ty,data=bytes(mu.mem_read(px,w*h*bpp)))
         if os.environ.get('GLV'): print('  ',name,hex(fm),hex(ty),x,y,w,h)
         return 0
+    if name in ('glViewport','glFrustumx','glTranslatex') and os.environ.get('GLV'): print('  ',name,[hex(reg(k)) for k in range(6)])
     if name.startswith('gl'): return 1 if name=='glGenTextures' and mu.mem_write(r(1),struct.pack('<I',calls[name]+1)) is None else 0
     if name.startswith('JNI#'):
         i=int(name[4:])

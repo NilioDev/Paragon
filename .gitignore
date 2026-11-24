@@ -7,3 +7,5 @@
 /generated/
 __pycache__/
 .venv/
+build/
+host/zen_test
